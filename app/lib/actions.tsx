@@ -9,7 +9,7 @@ import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
-const createInvoiceSchema = z.object({
+const InvoiceSchema = z.object({
     id: z.string(),
     customerId: z.string(),
     amount: z.coerce.number(),
@@ -17,19 +17,18 @@ const createInvoiceSchema = z.object({
     date: z.string()
 })
 
-const createInvoiceFormSchema = createInvoiceSchema.omit({
+const InvoiceFormSchema = InvoiceSchema.omit({
     id: true,
     date: true
 })
 
 export async function createInvoce(formData: FormData){
-    console.log('createInvoice', formData);
 /*     const { amount, customerId, status } = createInvoiceFormSchema.parse({
         customerId: formData.get('customerId'),
         amount: formData.get('amount'),
         status: formData.get('status')
     }) */
-    const { amount, customerId, status } = createInvoiceFormSchema.parse(Object.fromEntries(formData.entries()))
+    const { amount, customerId, status } = InvoiceFormSchema.parse(Object.fromEntries(formData.entries()))
 
     //transformamos para evitar errores de redondeo
     const amountInCent = amount * 100
@@ -44,3 +43,27 @@ export async function createInvoce(formData: FormData){
     revalidatePath('/dashboard/invoices')
     redirect('/dashboard/invoices')
 }
+
+export async function updateInvoice(id: string, formData: FormData) {
+    const { customerId, amount, status } = InvoiceFormSchema.parse({
+      customerId: formData.get('customerId'),
+      amount: formData.get('amount'),
+      status: formData.get('status'),
+    });
+   
+    const amountInCents = amount * 100;
+   
+    await sql`
+      UPDATE invoices
+      SET customer_id = ${customerId}, amount = ${amountInCents}, status = ${status}
+      WHERE id = ${id}
+    `;
+   
+    revalidatePath('/dashboard/invoices');
+    redirect('/dashboard/invoices');
+  }
+
+  export async function deleteInvoice(id: string) {
+    await sql`DELETE FROM invoices WHERE id = ${id}`;
+    revalidatePath('/dashboard/invoices');
+  }
